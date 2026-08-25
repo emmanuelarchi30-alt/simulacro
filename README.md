@@ -1,46 +1,46 @@
-# Gestión de Productos — Frontend (React + TypeScript)
+# Product Management — Frontend (React + TypeScript)
 
-Frontend de la aplicación de gestión de productos para la **prueba de desempeño**.
-Consume una API REST real (NestJS + PostgreSQL) incluida en la carpeta `backend/`,
-con autenticación JWT, roles (`admin` / `user`), categorías, productos y favoritos.
+Frontend of the product management application for the **performance exam**.
+It consumes a real REST API (NestJS + PostgreSQL) included in the `backend/` folder,
+with JWT authentication, roles (`admin` / `user`), categories, products and favorites.
 
 ```
 prueba-desempeno/
-├── backend/    → API NestJS (repositorio oficial + ajustes documentados abajo)
-└── frontend/   → App React + TypeScript (este proyecto)
+├── backend/    → NestJS API (official repo + adjustments documented below)
+└── frontend/   → React + TypeScript app (this project)
 ```
 
 ---
 
-## 1. Cómo correr el proyecto localmente
+## 1. How to run the project locally
 
 ### Backend (API)
 
 ```bash
 cd backend
 npm install
-npm run migration:run   # crea el esquema y siembra el usuario admin
+npm run migration:run   # creates the schema and seeds the admin user
 npm run start:dev       # http://localhost:4000
 ```
 
-Crea `backend/.env` a partir de `backend/.env.example`:
+Create `backend/.env` from `backend/.env.example`:
 
 ```env
 PORT=4000
 DATABASE_URL=postgresql://usuario:password@host:5432/postgres
-DATABASE_SSL=true        # ← solo si tu Postgres exige SSL (p. ej. Supabase)
-JWT_SECRET=un-string-largo-y-aleatorio
+DATABASE_SSL=true        # ← only if your Postgres requires SSL (e.g. Supabase)
+JWT_SECRET=a-long-random-string
 JWT_EXPIRES_IN=1d
 ```
 
-> **Ajuste al repositorio original:** el proyecto venía con SSL de Postgres
-> hardcodeado (pensado para Supabase). Se hizo condicional con `DATABASE_SSL`
-> en `src/data-source.ts` y `src/app.module.ts` para permitir también una base
-> local sin SSL. Con Supabase basta poner `DATABASE_SSL=true`.
+> **Adjustment to the original repository:** the project shipped with Postgres SSL
+> hardcoded (meant for Supabase). It was made conditional via `DATABASE_SSL`
+> in `src/data-source.ts` and `src/app.module.ts` to also allow a local
+> database without SSL. With Supabase just set `DATABASE_SSL=true`.
 
-Este entorno de prueba usa un **PostgreSQL 16 local** en el puerto `5544`
-(carpeta `pgdata/`, no requiere Docker ni Supabase). Si prefieres Supabase,
-copia el connection string de *Session pooler* en `DATABASE_URL`.
+This test environment uses a **local PostgreSQL 16** on port `5544`
+(`pgdata/` folder, no Docker or Supabase required). If you prefer Supabase,
+copy the *Session pooler* connection string into `DATABASE_URL`.
 
 **Swagger:** <http://localhost:4000/api/docs>
 
@@ -52,265 +52,264 @@ npm install
 npm run dev             # http://localhost:5173
 ```
 
-Variables (archivo `frontend/.env`, ya incluido):
+Variables (`frontend/.env`, already included):
 
 ```env
 VITE_API_URL=http://localhost:4000
 ```
 
-Otros comandos útiles:
+Other useful commands:
 
 ```bash
-npm run test          # pruebas (Vitest + React Testing Library)
+npm run test          # tests (Vitest + React Testing Library)
 npm run lint          # oxlint
-npm run typecheck     # tsc --build en modo estricto
-npm run build         # build de producción
+npm run typecheck     # tsc --build in strict mode
+npm run build         # production build
 ```
 
-### Credenciales de prueba
+### Test credentials
 
-| Rol   | Email               | Contraseña  |
+| Role  | Email               | Password    |
 | ----- | ------------------- | ----------- |
-| admin | `emmanuel@gmail.com`| (la definida al registrarse) |
+| admin | `emmanuel@gmail.com`| (the one defined at sign-up) |
 | user  | `usuario@examen.com`| `User123!`  |
 | user  | `admin@examen.com`  | `Admin123!` |
 
-> Nota: la cuenta con permisos de administrador (crear/editar/eliminar
-> productos y categorías, ver todas las órdenes) es `emmanuel@gmail.com`.
-> La cuenta `admin@examen.com` fue degradada a usuario normal.
+> Note: the account with administrator permissions (create/edit/delete
+> products and categories, view all orders) is `emmanuel@gmail.com`.
+> The `admin@examen.com` account was downgraded to a regular user.
 
-La base viene sembrada además con categorías (Electrónica, Hogar, Deportes,
-Libros) y productos de ejemplo.
-
----
-
-## 2. ¿Dónde se guarda el token y por qué? (`localStorage` vs `sessionStorage`)
-
-**Decisión: `localStorage`**, bajo la clave `gp.accessToken`
-(ver `src/lib/tokenStorage.ts`).
-
-**Justificación:**
-
-- La API entrega un JWT de acceso con vigencia de 1 día y **no existe flujo de
-  refresh token**; no hay nada que "rotar" entre pestañas ni al cerrar sesión.
-- Con `localStorage` la sesión sobrevive recargas y pestañas nuevas durante toda
-  la vigencia del token, lo que da una experiencia coherente con el criterio
-  "al recargar la página, la sesión persiste mientras el token siga vigente".
-- El riesgo clásico de `localStorage` es el robo por XSS. Se mitiga a nivel de
-  app: nunca se interpolan datos de la API como HTML, React escapa todo el
-  contenido por defecto y el token **no se expone** en URLs ni en logs.
-- `sessionStorage` habría sido preferible si el requisito fuera que la sesión
-  muera al cerrar la pestaña (p. ej. equipos compartidos); ese no es el caso de
-  un catálogo de productos.
-
-El token **nunca** viaja en cookies y siempre se envía explícitamente como
-`Authorization: Bearer <token>` desde el interceptor.
+The database is also seeded with categories (Electronics, Home, Sports,
+Books) and sample products.
 
 ---
 
-## 3. Librería HTTP y resolución del interceptor
+## 2. Where is the token stored and why? (`localStorage` vs `sessionStorage`)
 
-**Elección: Axios** (frente a `fetch`).
+**Decision: `localStorage`**, under the key `gp.accessToken`
+(see `src/lib/tokenStorage.ts`).
 
-- **Interceptores nativos**: axios permite colgar lógica de request/response en
-  un solo lugar; con `fetch` habría que escribir un wrapper manual con
-  `try/finally` para reconstruir headers en cada llamada o envolver cada
-  petición en funciones de orden superior.
-- **Lanza excepción automáticamente** en códigos 4xx/5xx, lo que encaja con el
-  manejo estructurado `try/catch/finally` exigido en toda la app.
-- Serialización/deserialización JSON y query params (`params:`) integrados.
-- Tipado cómodo: `http.request<T>()` devuelve directamente `T`.
+**Rationale:**
 
-Implementación en `src/lib/http.ts`:
+- The API issues an access JWT valid for 1 day and **there is no refresh token flow**;
+  there is nothing to "rotate" across tabs or on logout.
+- With `localStorage` the session survives reloads and new tabs for the whole
+  token lifetime, which gives an experience consistent with the requirement
+  "after reloading the page, the session persists while the token is still valid".
+- The classic `localStorage` risk is theft via XSS. It is mitigated at the app level:
+  API data is never interpolated as HTML, React escapes all content by default,
+  and the token **is never exposed** in URLs or logs.
+- `sessionStorage` would have been preferable if the requirement were for the
+  session to die when closing the tab (e.g. shared computers); that is not the case
+  for a product catalog.
+
+The token **never** travels in cookies and is always sent explicitly as
+`Authorization: Bearer <token>` from the interceptor.
+
+---
+
+## 3. HTTP library and interceptor solution
+
+**Choice: Axios** (over `fetch`).
+
+- **Native interceptors**: axios allows attaching request/response logic in one place;
+  with `fetch` you would have to write a manual wrapper with `try/finally`
+  to rebuild headers on every call or wrap each request in higher-order functions.
+- **Automatically throws** on 4xx/5xx codes, which fits the structured
+  `try/catch/finally` handling required throughout the app.
+- JSON serialization/deserialization and query params (`params:`) built in.
+- Comfortable typing: `http.request<T>()` returns `T` directly.
+
+Implementation in `src/lib/http.ts`:
 
 ```ts
-// Request: inyecta el token en TODAS las peticiones si hay sesión
+// Request: injects the token into ALL requests if there is a session
 http.interceptors.request.use((config) => {
   const token = tokenStorage.get();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Response: reacciona a 401 con sesión activa → logout automático
+// Response: reacts to 401 with an active session → automatic logout
 http.interceptors.response.use(
   (response) => response,
   (error) => {
     const isAuthEndpoint = url.startsWith('/auth/login') || url.startsWith('/auth/register');
     if (status === 401 && !isAuthEndpoint && hadToken) {
       tokenStorage.clear();
-      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT)); // AuthProvider cierra sesión
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT)); // AuthProvider signs out
     }
     return Promise.reject(error);
   },
 );
 ```
 
-Detalles importantes del interceptor de response:
+Important details about the response interceptor:
 
-- **No dispara logout** cuando el 401 viene de `/auth/login` o `/auth/register`
-  (credenciales incorrectas de un invitado ≠ sesión vencida).
-- Comunica el cierre vía un evento global (`gp:unauthorized`) que escucha el
-  `AuthProvider`, evitando imports circulares entre la capa HTTP y React.
+- **Does not trigger logout** when the 401 comes from `/auth/login` or `/auth/register`
+  (a guest's wrong credentials ≠ expired session).
+- Communicates the sign-out via a global event (`gp:unauthorized`) listened to by
+  the `AuthProvider`, avoiding circular imports between the HTTP layer and React.
 
-Encima de axios vive una capa genérica tipada:
+On top of axios lives a typed generic layer:
 
 ```ts
 export async function httpRequest<T>(config: AxiosRequestConfig): Promise<T>
 ```
 
-y los servicios de dominio (`src/services/index.service.ts`) la especializan:
+and the domain services (`src/services/index.service.ts`) specialize it:
 `authService.login()`, `productsService.list()`, `favoritesService.add()`, etc.
 
 ---
 
-## Arquitectura del frontend
+## Frontend architecture
 
-Separación por capas con ES Modules (barrels en `types/` y `hooks/`):
+Layered separation with ES Modules (barrels in `types/` and `hooks/`):
 
 ```
 frontend/src/
-├── types/            # Tipos del dominio (Product, Category, User, AuthResponse…)
-│                     # y tipos de API (PaginatedResponse<T>, ApiErrorResponse)
-├── lib/              # Infraestructura pura, sin React
-│   ├── http.ts       # Instancia axios + interceptores + httpRequest<T>
-│   ├── errors.ts     # Clase AppError + toAppError() + mapeo a errores de campo
+├── types/            # Domain types (Product, Category, User, AuthResponse…)
+│                     # and API types (PaginatedResponse<T>, ApiErrorResponse)
+├── lib/              # Pure infrastructure, no React
+│   ├── http.ts       # Axios instance + interceptors + httpRequest<T>
+│   ├── errors.ts     # AppError class + toAppError() + field error mapping
 │   └── tokenStorage.ts
-├── services/         # Servicios por recurso sobre httpRequest<T>
-├── context/          # Estado global: AuthContext, FavoritesContext, ToastContext
+├── services/         # Per-resource services on top of httpRequest<T>
+├── context/          # Global state: AuthContext, FavoritesContext, ToastContext
 ├── hooks/            # useFetch<T>, useForm<T>, useDebouncedValue, useAuth…
 ├── components/
 │   ├── common/       # RouteGuards, ErrorBoundary, ProductCard, Pagination…
 │   ├── forms/        # LoginForm, RegisterForm, CategoryForm, ProductForm
 │   └── layout/       # Navbar + Layout
-├── pages/            # Una página por ruta (composición de lo anterior)
-├── utils/            # formatPrice y helpers puros
-└── styles/global.css # Design system propio (tokens CSS)
+├── pages/            # One page per route (composition of the above)
+├── utils/            # formatPrice and pure helpers
+└── styles/global.css # Own design system (CSS tokens)
 ```
 
-Puntos clave por módulo de la prueba:
+Key points per module of the exam:
 
-### Módulo 1 — Tipado del dominio
+### Module 1 — Domain typing
 - `Product`, `Category`, `User`, `UserRole`, `AuthResponse`,
-  `PaginatedResponse<T>`, payloads de create/update (`Partial<>`).
-- **Genéricos reales**: `httpRequest<T>`, `useFetch<T>(fetcher, deps)` (dispara
-  en `useEffect`, ignora respuestas canceladas y expone `refetch`),
+  `PaginatedResponse<T>`, create/update payloads (`Partial<>`).
+- **Real generics**: `httpRequest<T>`, `useFetch<T>(fetcher, deps)` (fires in
+  `useEffect`, ignores cancelled responses and exposes `refetch`),
   `useForm<T extends Record<string, unknown>>`.
-- **Clase justificada**: `AppError` clasifica `network | validation |
-  unauthorized | forbidden | not_found | conflict | server | unknown`; con
-  `instanceof` + `toAppError()` toda llamada termina en `try/catch/finally` con
-  feedback visible. Si el backend está caído, la UI muestra una alerta de red
-  con botón **Reintentar** (nunca pantalla en blanco).
-- Cero `any`: `strict: true` en tsconfig.
+- **Justified class**: `AppError` classifies `network | validation |
+  unauthorized | forbidden | not_found | conflict | server | unknown`; with
+  `instanceof` + `toAppError()` every call ends in `try/catch/finally` with
+  visible feedback. If the backend is down, the UI shows a network alert
+  with a **Retry** button (never a blank screen).
+- Zero `any`: `strict: true` in tsconfig.
 
-### Módulo 2 — Autenticación, sesión y RBAC
-- Formularios controlados de login/registro; errores 400 (por campo), 401 y
-  409 del servidor se muestran dentro del formulario.
-- El registro **no inicia sesión**: al crear la cuenta solo muestra la
-  confirmación ("Usuario creado") y redirige a `/login`; el acceso a la app
-  ocurre únicamente al iniciar sesión.
-- `AuthProvider` valida el token persistido contra `GET /users/me` al arrancar.
-- Rutas protegidas en dos niveles (`RouteGuards.tsx`):
-  - `RequireAuth`: favoritos, crear/editar/eliminar producto.
-  - `RequireRole roles={['admin']}`: crear categoría. Un usuario `user` que
-    entra por URL directa es **redirigido al inicio con aviso visible**
-    (verificado con prueba de integración).
-- Logout limpia storage **y** llama `POST /auth/logout` (en `finally`).
+### Module 2 — Authentication, session and RBAC
+- Controlled login/register forms; server-side 400 (per field), 401 and
+  409 errors are displayed inside the form.
+- Registration **does not sign you in**: after creating the account it only shows the
+  confirmation ("User created") and redirects to `/login`; entering the app
+  happens only when signing in.
+- `AuthProvider` validates the persisted token against `GET /users/me` at startup.
+- Protected routes at two levels (`RouteGuards.tsx`):
+  - `RequireAuth`: favorites, create/edit/delete product.
+  - `RequireRole roles={['admin']}`: create category. A `user` who
+    enters via direct URL is **redirected home with a visible notice**
+    (verified with an integration test).
+- Logout clears storage **and** calls `POST /auth/logout` (in `finally`).
 
-### Módulos 3–5 — Categorías, Productos, Favoritos
-- Categorías públicas; creación solo admin; detalle con sus productos
-  paginados y botón "Agregar producto" para autenticados.
-- Productos: búsqueda con debounce + filtro por categoría + paginación
-  sincronizados con la URL (`useSearchParams`); formulario **único**
-  (`ProductForm`) usado en `/products/new`, `/categories/:id/products/new`
-  (select precargado y deshabilitado) y edición; imágenes como URLs con vista
-  previa y placeholder tolerante a URLs rotas (`SafeImage`).
-- Favoritos: toggle optimista en contexto global; **409** ("ya estaba") y
-  **404** ("ya no estaba") se reconcilian sin romper la UI; la lista "Mis
-  favoritos" se actualiza sin recargar.
+### Modules 3–5 — Categories, Products, Favorites
+- Public categories; creation restricted to admin; detail page with its paginated
+  products and an "Add product" button for authenticated users.
+- Products: debounced search + category filter + pagination
+  synchronized with the URL (`useSearchParams`); a **single**
+  form (`ProductForm`) used by `/products/new`, `/categories/:id/products/new`
+  (preloaded and disabled select) and editing; images as URLs with preview
+  and a placeholder tolerant to broken URLs (`SafeImage`).
+- Favorites: optimistic toggle in global context; **409** ("already favorited") and
+  **404** ("no longer there") are reconciled without breaking the UI; the "My
+  favorites" list updates without reloading.
 
-### Módulo 6 — Errores en la interfaz
-- Toda petición fallida muestra alerta/toast según su tipo (incluye banner
-  específico de red caída).
-- `ErrorBoundary` (class component, único caso donde React las exige aún)
-  envuelve toda la app. Demo en vivo: ruta **`/demo-crash`** lanza un error de
-  renderizado intencional y el boundary captura con fallback + recargar.
+### Module 6 — UI error handling
+- Every failed request shows an alert/toast according to its type (includes a
+  specific banner for network failures).
+- `ErrorBoundary` (class component, the only case where React still requires them)
+  wraps the whole app. Live demo: the **`/demo-crash`** route throws an intentional
+  render error and the boundary catches it with a fallback + reload.
 
-### Módulo 7 — Pruebas
+### Module 7 — Tests
 ```bash
 cd frontend && npm run test
 ```
-- Unitarias: `formatPrice` y clasificación de errores (`toAppError`).
-- Integración (RTL): login completo contra servicio simulado (éxito navega +
-  guarda token; 401 muestra el error visible), y RBAC: usuario `user` es
-  redirigido desde `/categories/new`.
-- Solo se mockea la capa de servicios; providers, guards y formularios son
-  reales.
+- Unit: `formatPrice` and error classification (`toAppError`).
+- Integration (RTL): full login against a mocked service (success navigates +
+  stores token; 401 shows the visible error), and RBAC: a `user` is
+  redirected away from `/categories/new`.
+- Only the service layer is mocked; providers, guards and forms are
+  real.
 
 ---
 
-## Notas del entorno usado en esta máquina
+## Notes about the environment used on this machine
 
-- **Ubicación actual del proyecto:** `/home/ruta_ts/Escritorio/prueba-desempeno/`
-- Puertos elegidos por conflictos con procesos existentes: **API en 4000**
-  (el 3000 estaba ocupado) y Postgres propio en **5544**
-  (`pgdata/` + `pgsock/`, iniciado con
+- **Current project location:** `/home/ruta_ts/Escritorio/prueba-desempeno/`
+- Ports chosen due to conflicts with existing processes: **API on 4000**
+  (3000 was taken) and its own Postgres on **5544**
+  (`pgdata/` + `pgsock/`, started with
   `/usr/lib/postgresql/16/bin/pg_ctl -D pgdata -o "-p 5544 -k $PWD/pgsock"`).
-- La API está conectada a **Supabase** (`DATABASE_SSL=true`); el Postgres local
-  de `pgdata/` queda como respaldo.
-- Para volver a levantar la BD local tras reiniciar el equipo:
+- The API is connected to **Supabase** (`DATABASE_SSL=true`); the local Postgres
+  in `pgdata/` remains as backup.
+- To bring the local DB back up after rebooting the machine:
   ```bash
   /usr/lib/postgresql/16/bin/pg_ctl -D pgdata \
     -l ../pg.log -o "-p 5544 -k $(pwd)/../pgsock" start
   ```
 
-### Modo oscuro y estilo *liquid glass*
+### Dark mode and *liquid glass* styling
 
-- Toggle 🌙/☀️ en la navbar; la preferencia se guarda en `localStorage`
-  (`gp.theme`) y, si no existe, se respeta `prefers-color-scheme` del sistema.
-- Un script inline en `index.html` aplica `data-theme` antes de que cargue
-  React para evitar destello de tema incorrecto (FOUC).
-- El estilo imita el *liquid glass* de iOS: relleno con brillo especular,
-  **canto refractado** (borde pintado en dos capas `padding-box`/`border-box`),
-  `backdrop-filter` con blur alto y saturación, aurora animada de tres blobs
-  detrás del vidrio y barrido de luz al pasar el mouse por las tarjetas.
-  (Se desactiva la animación con `prefers-reduced-motion`.)
+- 🌙/☀️ toggle in the navbar; the preference is saved in `localStorage`
+  (`gp.theme`) and, if absent, the system's `prefers-color-scheme` is respected.
+- An inline script in `index.html` applies `data-theme` before React loads
+  to avoid a wrong-theme flash (FOUC).
+- The style mimics iOS *liquid glass*: specular highlight fill,
+  **refracted rim** (border painted in two `padding-box`/`border-box` layers),
+  `backdrop-filter` with heavy blur and saturation, an animated aurora of three blobs
+  behind the glass and a light sweep on card hover.
+  (The animation is disabled with `prefers-reduced-motion`.)
 
-### Foto de perfil
+### Profile photo
 
-- El backend se extendió con una migración (`AddUserAvatar`: columna
-  `users.avatar`) y el endpoint **`PATCH /users/me`**
-  (`UpdateProfileDto`: `name?`, `avatar?: string | null`; `null` quita la foto).
-  Misma filosofía del examen para imágenes: **URL**, no subida de archivos.
-- En el frontend: página `/profile` con vista previa en vivo del avatar,
-  edición de nombre y URL de foto; el avatar (imagen o iniciales) aparece en la
-  navbar como acceso directo al perfil. El usuario actualizado se propaga por
-  `AuthContext.updateProfile()` a toda la app.
+- The backend was extended with a migration (`AddUserAvatar`: column
+  `users.avatar`) and the **`PATCH /users/me`** endpoint
+  (`UpdateProfileDto`: `name?`, `avatar?: string | null`; `null` removes the photo).
+  Same philosophy as the exam for images: **URL**, not file upload.
+- On the frontend: a `/profile` page with live avatar preview,
+  name and photo URL editing; the avatar (image or initials) appears in the
+  navbar as a shortcut to the profile. The updated user propagates through
+  `AuthContext.updateProfile()` to the whole app.
 
-### Compras (extensión propia, acordada con el usuario)
+### Purchases (own extension, agreed with the user)
 
-- Migración `CreateOrdersAndFixCatalog`: tabla **`orders`** (usuario, producto,
-  cantidad, precio unitario y total congelados al comprar, estado) y catálogo
-  ampliado a **16 productos** (4 por categoría). Las imágenes usan el CDN de
-  **Unsplash** con enlaces verificados uno a uno (HTTP 200) y que sí coinciden
-  con cada producto; el proveedor anterior (LoremFlickr) dejó de responder,
-  dejando la galería vacía.
-- Endpoints: **`POST /orders`** (compra directa, transaccional: valida stock,
-  lo descuenta y registra la orden), **`GET /orders/me`** (historial propio)
-  y **`GET /orders`** (todas, solo admin).
-- Frontend: selector de cantidad + botón **“Comprar ahora”** en el detalle
-  (muestra el total en vivo y refresca el stock tras comprar) y sección
-  **“Mis compras”** (`/my-orders`) en la navbar.
+- Migration `CreateOrdersAndFixCatalog`: an **`orders`** table (user, product,
+  quantity, unit price and total frozen at purchase time, status) and a catalog
+  expanded to **16 products** (4 per category). Images use the **Unsplash**
+  CDN with links verified one by one (HTTP 200) that actually match each
+  product; the previous provider (LoremFlickr) stopped responding, leaving
+  the gallery empty.
+- Endpoints: **`POST /orders`** (direct purchase, transactional: validates stock,
+  decrements it and records the order), **`GET /orders/me`** (own history)
+  and **`GET /orders`** (all of them, admin only).
+- Frontend: quantity selector + **"Buy now"** button on the detail page
+  (shows the total live and refreshes stock after purchasing) and a
+  **"My purchases"** section (`/my-orders`) in the navbar.
 
-### RBAC reforzado
+### Hardened RBAC
 
-- Crear/editar/eliminar **productos** ahora exige rol **admin**
-  (`@Auth(UserRole.ADMIN)` en la API y `RequireRole` en las rutas),
-  igual que las categorías. Un usuario autenticado sin permisos recibe 403;
-  los botones de edición ni siquiera se le muestran.
+- Creating/editing/deleting **products** now requires the **admin** role
+  (`@Auth(UserRole.ADMIN)` on the API and `RequireRole` on the routes),
+  same as categories. An authenticated user without permissions gets 403;
+  the edit buttons are not even rendered for them.
 
-### Botones *liquid glass*
+### *Liquid glass* buttons
 
-- Los tres estilos de botón usan ahora el mismo tratamiento de vidrio que el
-  resto de la interfaz: relleno especular + canto refractado
-  (`padding-box`/`border-box`), blur y saturación del fondo; los primarios y
-  de peligro llevan cristal tintado con su color.
+- All three button styles now use the same glass treatment as the
+  rest of the interface: specular fill + refracted rim
+  (`padding-box`/`border-box`), background blur and saturation; primary and
+  danger buttons carry glass tinted with their color.
