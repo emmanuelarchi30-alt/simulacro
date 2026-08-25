@@ -205,6 +205,9 @@ Puntos clave por módulo de la prueba:
 ### Módulo 2 — Autenticación, sesión y RBAC
 - Formularios controlados de login/registro; errores 400 (por campo), 401 y
   409 del servidor se muestran dentro del formulario.
+- El registro **no inicia sesión**: al crear la cuenta solo muestra la
+  confirmación ("Usuario creado") y redirige a `/login`; el acceso a la app
+  ocurre únicamente al iniciar sesión.
 - `AuthProvider` valida el token persistido contra `GET /users/me` al arrancar.
 - Rutas protegidas en dos niveles (`RouteGuards.tsx`):
   - `RequireAuth`: favoritos, crear/editar/eliminar producto.
