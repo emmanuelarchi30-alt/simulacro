@@ -1,0 +1,12 @@
+import { useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
+import type { AuthContextValue } from '../context/AuthContext';
+
+/** Hook de consumo del contexto de autenticación. */
+export function useAuth(): AuthContextValue {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth debe usarse dentro de un AuthProvider');
+  }
+  return context;
+}

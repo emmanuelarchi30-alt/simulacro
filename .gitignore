@@ -1,0 +1,10 @@
+node_modules/
+dist/
+*.log
+
+# Base de datos local del proyecto (Postgres propio)
+pgdata/
+pgsock/
+
+# Entornos con secretos (el .env del frontend solo tiene VITE_API_URL público)
+backend/.env
