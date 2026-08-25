@@ -1,199 +1,199 @@
-# Gestión de Productos API
+# Product Management API
 
-API REST para la administración de productos, categorías y favoritos, con autenticación por JWT y control de acceso basado en roles (RBAC). Construida con [NestJS](https://nestjs.com/), [TypeORM](https://typeorm.io/) y PostgreSQL (compatible con [Supabase](https://supabase.com/)).
+REST API for managing products, categories and favorites, with JWT authentication and role-based access control (RBAC). Built with [NestJS](https://nestjs.com/), [TypeORM](https://typeorm.io/) and PostgreSQL (compatible with [Supabase](https://supabase.com/)).
 
-## Tabla de contenidos
+## Table of contents
 
-- [Stack tecnológico](#stack-tecnológico)
-- [Estructura del proyecto](#estructura-del-proyecto)
-- [Requisitos previos](#requisitos-previos)
-- [Instalación y configuración](#instalación-y-configuración)
-- [Scripts disponibles](#scripts-disponibles)
-- [Documentación interactiva (Swagger)](#documentación-interactiva-swagger)
-- [Autenticación y roles](#autenticación-y-roles)
-- [Módulos y endpoints principales](#módulos-y-endpoints-principales)
-- [Pruebas](#pruebas)
-- [Migraciones](#migraciones)
+- [Tech stack](#tech-stack)
+- [Project structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Installation and setup](#installation-and-setup)
+- [Available scripts](#available-scripts)
+- [Interactive documentation (Swagger)](#interactive-documentation-swagger)
+- [Authentication and roles](#authentication-and-roles)
+- [Main modules and endpoints](#main-modules-and-endpoints)
+- [Tests](#tests)
+- [Migrations](#migrations)
 
-## Stack tecnológico
+## Tech stack
 
-| Categoría | Tecnología |
+| Category | Technology |
 |---|---|
 | Framework | NestJS 11 |
-| Lenguaje | TypeScript |
-| Base de datos | PostgreSQL (TypeORM) |
-| Autenticación | JWT (`@nestjs/jwt` + `passport-jwt`) |
-| Validación | `class-validator` / `class-transformer` |
-| Documentación de API | Swagger (`@nestjs/swagger`) |
+| Language | TypeScript |
+| Database | PostgreSQL (TypeORM) |
+| Authentication | JWT (`@nestjs/jwt` + `passport-jwt`) |
+| Validation | `class-validator` / `class-transformer` |
+| API documentation | Swagger (`@nestjs/swagger`) |
 | Testing | Jest + Supertest |
 
-## Estructura del proyecto
+## Project structure
 
 ```
 src/
-├── common/               # Guards y decoradores transversales (JWT, roles)
+├── common/               # Cross-cutting guards and decorators (JWT, roles)
 ├── modules/
-│   ├── auth/              # Registro, login, logout, estrategia JWT
-│   ├── users/              # Perfil del usuario autenticado, cambio de contraseña
-│   ├── categories/         # CRUD de categorías (creación restringida a admin)
-│   ├── products/           # CRUD de productos, búsqueda, filtros, paginación
-│   └── favorites/          # Productos favoritos por usuario
-├── migrations/            # Migraciones de TypeORM (fuente de verdad del esquema)
-├── data-source.ts         # Configuración de conexión usada por la CLI de TypeORM
+│   ├── auth/              # Register, login, logout, JWT strategy
+│   ├── users/              # Authenticated user profile, password change
+│   ├── categories/         # Categories CRUD (creation restricted to admin)
+│   ├── products/           # Products CRUD, search, filters, pagination
+│   └── favorites/          # Favorite products per user
+├── migrations/            # TypeORM migrations (single source of truth for the schema)
+├── data-source.ts         # Connection configuration used by the TypeORM CLI
 ├── app.module.ts
-└── main.ts                # Bootstrap: CORS, ValidationPipe global, Swagger
+└── main.ts                # Bootstrap: CORS, global ValidationPipe, Swagger
 ```
 
-Cada módulo sigue la misma convención interna: `*.controller.ts` (rutas), `*.service.ts` (lógica de negocio), `dto/` (validación de entrada) y `entities/` (modelo de datos/TypeORM).
+Every module follows the same internal convention: `*.controller.ts` (routes), `*.service.ts` (business logic), `dto/` (input validation) and `entities/` (data model/TypeORM).
 
-## Requisitos previos
+## Prerequisites
 
-- Node.js 20 o superior
-- Una base de datos PostgreSQL accesible (se recomienda un proyecto de [Supabase](https://supabase.com/), gratuito y sin necesidad de instalar Postgres localmente)
+- Node.js 20 or higher
+- An accessible PostgreSQL database (a [Supabase](https://supabase.com/) project is recommended — free, no need to install Postgres locally)
 
-## Instalación y configuración
+## Installation and setup
 
 ```bash
-git clone <url-del-repositorio>
+git clone <repository-url>
 cd gestion-productos-api
 npm install
 ```
 
-Crea tu archivo de variables de entorno a partir del ejemplo:
+Create your environment file from the example:
 
 ```bash
 cp .env.example .env
 ```
 
-Completa `.env` con tus propios valores:
+Fill in `.env` with your own values:
 
-| Variable | Descripción |
+| Variable | Description |
 |---|---|
-| `PORT` | Puerto en el que corre la API (por defecto `3000`). |
-| `DATABASE_URL` | Cadena de conexión a tu base de datos PostgreSQL. En Supabase: **Project Settings → Database → Connection string** (usa el *Session pooler*, puerto `5432`). |
-| `JWT_SECRET` | Clave secreta para firmar los tokens JWT. Usa un valor largo y aleatorio, nunca el del `.env.example`. |
-| `JWT_EXPIRES_IN` | Vigencia del token (ej. `1d`, `12h`). |
+| `PORT` | Port the API runs on (defaults to `3000`). |
+| `DATABASE_URL` | Connection string for your PostgreSQL database. On Supabase: **Project Settings → Database → Connection string** (use the *Session pooler*, port `5432`). |
+| `JWT_SECRET` | Secret key used to sign JWT tokens. Use a long random value, never the one from `.env.example`. |
+| `JWT_EXPIRES_IN` | Token lifetime (e.g. `1d`, `12h`). |
 
-Con la base de datos ya configurada, aplica las migraciones para crear el esquema:
+With the database configured, apply the migrations to create the schema:
 
 ```bash
 npm run migration:run
 ```
 
-Esto crea todas las tablas y **siembra automáticamente una cuenta administradora** (ver [Autenticación y roles](#autenticación-y-roles)) — no hace falta crearla a mano.
+This creates all tables and **automatically seeds an admin account** (see [Authentication and roles](#authentication-and-roles)) — no need to create it manually.
 
-Levanta el servidor en modo desarrollo:
+Start the server in development mode:
 
 ```bash
 npm run start:dev
 ```
 
-La API queda disponible en `http://localhost:3000`.
+The API is now available at `http://localhost:3000`.
 
-## Scripts disponibles
+## Available scripts
 
-| Comando | Descripción |
+| Command | Description |
 |---|---|
-| `npm run start:dev` | Levanta el servidor con recarga automática. |
-| `npm run start:prod` | Corre la build de producción (requiere `npm run build` antes). |
-| `npm run build` | Compila el proyecto a `dist/`. |
-| `npm run lint` | Corre ESLint con autofix. |
-| `npm run test` | Corre los tests unitarios. |
-| `npm run test:e2e` | Corre los tests end-to-end. |
-| `npm run migration:run` | Aplica las migraciones pendientes. |
-| `npm run migration:revert` | Revierte la última migración aplicada. |
-| `npm run migration:generate` | Genera una migración a partir de cambios en las entidades. |
+| `npm run start:dev` | Starts the server with hot reload. |
+| `npm run start:prod` | Runs the production build (requires `npm run build` first). |
+| `npm run build` | Compiles the project to `dist/`. |
+| `npm run lint` | Runs ESLint with autofix. |
+| `npm run test` | Runs unit tests. |
+| `npm run test:e2e` | Runs end-to-end tests. |
+| `npm run migration:run` | Applies pending migrations. |
+| `npm run migration:revert` | Reverts the last applied migration. |
+| `npm run migration:generate` | Generates a migration from entity changes. |
 
-## Documentación interactiva (Swagger)
+## Interactive documentation (Swagger)
 
-Con el servidor corriendo, la documentación completa de la API está disponible en:
+With the server running, the full API documentation is available at:
 
 ```
 http://localhost:3000/api/docs
 ```
 
-Ahí puedes ver cada endpoint, su cuerpo de petición/respuesta esperado, y probarlo directamente autenticándote con el botón **Authorize** (pega el `accessToken` que devuelve `/auth/login`).
+There you can view every endpoint, its expected request/response body, and try it directly by authenticating with the **Authorize** button (paste the `accessToken` returned by `/auth/login`).
 
-## Autenticación y roles
+## Authentication and roles
 
-La API usa JWT con dos roles: `admin` y `user`.
+The API uses JWT with two roles: `admin` and `user`.
 
-1. El usuario se registra (`POST /auth/register`) o inicia sesión (`POST /auth/login`).
-2. La API responde con un `accessToken` que incluye el `id`, `email` y `role` del usuario.
-3. Ese token debe enviarse en cada petición a una ruta protegida:
+1. The user registers (`POST /auth/register`) or signs in (`POST /auth/login`).
+2. The API responds with an `accessToken` that includes the user's `id`, `email` and `role`.
+3. That token must be sent with every request to a protected route:
 
 ```
 Authorization: Bearer <accessToken>
 ```
 
-- El token expira según `JWT_EXPIRES_IN`. Si expira o es inválido, la API responde `401 Unauthorized`.
-- Como el JWT es *stateless*, el servidor no invalida tokens activamente: `POST /auth/logout` solo confirma la acción; quien cierra la sesión realmente es el cliente, descartando el token guardado.
+- The token expires according to `JWT_EXPIRES_IN`. If it is expired or invalid, the API responds `401 Unauthorized`.
+- Since the JWT is *stateless*, the server does not actively invalidate tokens: `POST /auth/logout` only acknowledges the action; whoever actually ends the session is the client, by discarding the stored token.
 
-**Cuenta admin sembrada por la migración** (solo para desarrollo/pruebas — cambia la contraseña si vas a exponer la API fuera de un entorno controlado):
+**Admin account seeded by the migration** (for development/testing only — change the password if you expose the API outside a controlled environment):
 
 - Email: `admin@examen.com`
 - Password: `Admin123!`
 
-Cualquier otra cuenta registrada desde `/auth/register` recibe el rol `user` por defecto.
+Any other account registered through `/auth/register` gets the default `user` role.
 
-### Formato de errores
+### Error format
 
-Todas las respuestas de error siguen esta forma:
+All error responses follow this shape:
 
 ```json
-{ "statusCode": 400, "message": "Descripción del error", "error": "Bad Request" }
+{ "statusCode": 400, "message": "Error description", "error": "Bad Request" }
 ```
 
-En errores de validación, `message` es un arreglo con un string por cada campo inválido.
+For validation errors, `message` is an array with one string per invalid field.
 
-| Código | Significado |
+| Code | Meaning |
 |---|---|
-| `400` | Datos inválidos (body no cumple las reglas de validación). |
-| `401` | Falta el token, es inválido o expiró. |
-| `403` | El usuario está autenticado pero no tiene el rol requerido. |
-| `404` | El recurso solicitado no existe. |
-| `409` | Conflicto (ej. correo o nombre duplicado). |
+| `400` | Invalid data (body fails validation rules). |
+| `401` | Missing, invalid or expired token. |
+| `403` | The user is authenticated but lacks the required role. |
+| `404` | The requested resource does not exist. |
+| `409` | Conflict (e.g. duplicate email or name). |
 
-## Módulos y endpoints principales
+## Main modules and endpoints
 
-| Método | Ruta | Auth | Rol |
+| Method | Route | Auth | Role |
 |---|---|---|---|
 | `POST` | `/auth/register` | No | — |
 | `POST` | `/auth/login` | No | — |
-| `POST` | `/auth/logout` | Sí | cualquiera |
-| `GET` | `/users/me` | Sí | cualquiera |
-| `PATCH` | `/users/me/password` | Sí | cualquiera |
+| `POST` | `/auth/logout` | Yes | any |
+| `GET` | `/users/me` | Yes | any |
+| `PATCH` | `/users/me/password` | Yes | any |
 | `GET` | `/categories` | No | — |
 | `GET` | `/categories/:id` | No | — |
-| `POST` | `/categories` | Sí | `admin` |
-| `PATCH` | `/categories/:id` | Sí | `admin` |
-| `DELETE` | `/categories/:id` | Sí | `admin` |
-| `GET` | `/products` | No | — (soporta `search`, `categoryId`, `page`, `limit`) |
+| `POST` | `/categories` | Yes | `admin` |
+| `PATCH` | `/categories/:id` | Yes | `admin` |
+| `DELETE` | `/categories/:id` | Yes | `admin` |
+| `GET` | `/products` | No | — (supports `search`, `categoryId`, `page`, `limit`) |
 | `GET` | `/products/:id` | No | — |
-| `POST` | `/products` | Sí | cualquiera |
-| `PATCH` | `/products/:id` | Sí | cualquiera |
-| `DELETE` | `/products/:id` | Sí | cualquiera |
-| `GET` | `/favorites` | Sí | cualquiera |
-| `POST` | `/favorites/:productId` | Sí | cualquiera |
-| `DELETE` | `/favorites/:productId` | Sí | cualquiera |
+| `POST` | `/products` | Yes | any |
+| `PATCH` | `/products/:id` | Yes | any |
+| `DELETE` | `/products/:id` | Yes | any |
+| `GET` | `/favorites` | Yes | any |
+| `POST` | `/favorites/:productId` | Yes | any |
+| `DELETE` | `/favorites/:productId` | Yes | any |
 
-Detalle completo de cada request/response (schemas, ejemplos, códigos de error) en [Swagger](#documentación-interactiva-swagger).
+Full details for every request/response (schemas, examples, error codes) in [Swagger](#interactive-documentation-swagger).
 
-## Pruebas
+## Tests
 
 ```bash
-npm run test        # unitarias
+npm run test        # unit tests
 npm run test:e2e    # end-to-end
-npm run test:cov    # con reporte de cobertura
+npm run test:cov    # with coverage report
 ```
 
-## Migraciones
+## Migrations
 
-El esquema de base de datos se gestiona exclusivamente por migraciones de TypeORM (`synchronize: false`). Si modificas una entidad, genera la migración correspondiente antes de aplicar el cambio:
+The database schema is managed exclusively through TypeORM migrations (`synchronize: false`). If you modify an entity, generate the corresponding migration before applying the change:
 
 ```bash
-npm run migration:generate src/migrations/NombreDelCambio
+npm run migration:generate src/migrations/NameOfTheChange
 npm run migration:run
 ```
 
-No modifiques una migración ya aplicada en una base compartida; crea una nueva.
+Do not modify a migration that has already been applied to a shared database; create a new one instead.
